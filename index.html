@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>YouTube Playlist Time Calculator</title>
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+  <style>
+    body {
+      margin: 0;
+      font-family: 'VT323', monospace;
+      background: #1d1d2e url('C:\Users\HP\Desktop\my-first-web-page\azumanga_daioh___osaka_and_chiyo_chan_by_beach_episode_dg81a0b-fullview.webp') center/cover no-repeat fixed;
+      color: #ffffff;
+      padding: 20px;
+      background-blend-mode: multiply;
+    }
+
+    h1 {
+      text-align: center;
+      color: #ff69b4;
+      font-size: 3em;
+      margin-bottom: 30px;
+      text-shadow: 2px 2px #000;
+    }
+
+    .container {
+      max-width: 700px;
+      margin: auto;
+      background: rgba(30, 30, 50, 0.9);
+      padding: 30px;
+      border-radius: 15px;
+      box-shadow: 0 0 20px #ffaad4;
+      transition: transform 0.3s ease;
+    }
+
+    input, button {
+      width: 100%;
+      padding: 12px;
+      font-family: 'VT323', monospace;
+      font-size: 20px;
+      margin: 10px 0;
+      border-radius: 10px;
+      border: none;
+    }
+
+    input {
+      background: #fff;
+      color: #000;
+    }
+
+    button {
+      background-color: #ff69b4;
+      color: white;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+
+    button:hover {
+      background-color: #ff89c2;
+    }
+
+    .results {
+      margin-top: 30px;
+      font-size: 22px;
+      background-color: rgba(255, 255, 255, 0.08);
+      padding: 20px;
+      border-radius: 15px;
+      border: 2px dashed #ffbde9;
+      display: none;
+      animation: fadeIn 1s ease forwards;
+    }
+
+    .speed-block {
+      margin-bottom: 30px;
+      padding-bottom: 10px;
+      border-bottom: 1px dashed #999;
+    }
+
+    .fun-comment {
+      font-size: 18px;
+      margin-top: 8px;
+      color: #ffa9e2;
+    }
+
+    .chibi {
+      position: fixed;
+      bottom: 0;
+      right: 10px;
+      width: 130px;
+      opacity: 0.9;
+      z-index: 10;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(30px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes popUp {
+      0% { opacity: 0; transform: scale(0.8); }
+      100% { opacity: 1; transform: scale(1); }
+    }
+  </style>
+</head>
+<body>
+  <h1>✨ Playlist Time Wizard ✨</h1>
+  <div class="container">
+    <label for="playlistUrl">Enter YouTube Playlist URL:</label>
+    <input type="text" id="playlistUrl" placeholder="e.g., https://www.youtube.com/playlist?list=...">
+    <button onclick="calculateTime()">🔮 Calculate Time</button>
+
+    <div id="results" class="results">
+      <p><strong>Total Duration:</strong> <span id="totalDuration"></span></p>
+      <div id="speedResults"></div>
+    </div>
+  </div>
+
+  <!-- Cute chibi character -->
+  <img src="C:\Users\HP\Desktop\my-first-web-page\honkai-star-rail-hsr.webp" class="chibi" alt="Chibi">
+
+  <script>
+    const apiKey = 'AIzaSyBZzZXmEVNrbON5gh7NYr80qAJYvuOpA_Q'; // Add your YouTube Data API key
+
+    const comments = {
+      1: "You're watching like a true human 🧍",
+      1.25: "Slight boost! 🐢➡️🐇",
+      1.5: "Fast learner alert 🚀",
+      1.75: "Almost anime-speed subtitles! 💨",
+      2: "Speed demon unlocked 🔥",
+      2.25: "Whoa! Did you just blink and finish it? 👁️⚡",
+      2.5: "Ultra instinct mode 💫",
+      2.75: "Ears bleeding yet? 🎧🥵",
+      3: "Bro is listening in Matrix language 🧠🛸"
+    };
+
+    function extractPlaylistId(url) {
+      const regex = /[?&]list=([a-zA-Z0-9_-]+)/;
+      const match = url.match(regex);
+      return match ? match[1] : null;
+    }
+
+    async function fetchPlaylistData(playlistId) {
+      let totalSeconds = 0;
+      let nextPageToken = null;
+      try {
+        do {
+          const url = `https://www.googleapis.com/youtube/v3/playlistItems?part=contentDetails&playlistId=${playlistId}&maxResults=50&key=${apiKey}&pageToken=${nextPageToken || ''}`;
+          const response = await fetch(url);
+          const data = await response.json();
+          if (data.error) {
+            alert('API error: ' + data.error.message);
+            return;
+          }
+
+          for (const item of data.items) {
+            const videoId = item.contentDetails.videoId;
+            const videoDetails = await fetchVideoDuration(videoId);
+            totalSeconds += videoDetails;
+          }
+
+          nextPageToken = data.nextPageToken;
+        } while (nextPageToken);
+      } catch (error) {
+        alert('An error occurred: ' + error.message);
+      }
+      return totalSeconds;
+    }
+
+    async function fetchVideoDuration(videoId) {
+      try {
+        const url = `https://www.googleapis.com/youtube/v3/videos?part=contentDetails&id=${videoId}&key=${apiKey}`;
+        const response = await fetch(url);
+        const data = await response.json();
+        const duration = data.items[0].contentDetails.duration;
+        return iso8601ToSeconds(duration);
+      } catch (error) {
+        return 0;
+      }
+    }
+
+    function iso8601ToSeconds(duration) {
+      const regex = /PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/;
+      const matches = duration.match(regex);
+      const hours = parseInt(matches[1] || 0, 10);
+      const minutes = parseInt(matches[2] || 0, 10);
+      const seconds = parseInt(matches[3] || 0, 10);
+      return hours * 3600 + minutes * 60 + seconds;
+    }
+
+    function formatTime(seconds) {
+      const h = Math.floor(seconds / 3600);
+      const m = Math.floor((seconds % 3600) / 60);
+      const s = Math.floor(seconds % 60);
+      return `${h}h ${m}m ${s}s`;
+    }
+
+    async function calculateTime() {
+      const url = document.getElementById('playlistUrl').value;
+      const playlistId = extractPlaylistId(url);
+      if (!playlistId) {
+        alert('Invalid playlist URL!');
+        return;
+      }
+
+      const totalSeconds = await fetchPlaylistData(playlistId);
+      if (totalSeconds === 0) {
+        alert('Playlist could not be read.');
+        return;
+      }
+
+      document.getElementById('totalDuration').textContent = formatTime(totalSeconds);
+      const speedList = [1, 1.25, 1.5, 1.75, 2, 2.25, 2.5, 2.75, 3];
+      const html = speedList.map(speed => {
+        const time = formatTime(totalSeconds / speed);
+        const comment = comments[speed] || "";
+        return `
+          <div class="speed-block" style="animation: popUp 0.5s ease-in-out;">
+            <strong>${speed}x Speed:</strong> ${time}
+            <div class="fun-comment">💬 ${comment}</div>
+          </div>
+        `;
+      }).join('');
+
+      const resultDiv = document.getElementById('results');
+      resultDiv.style.display = 'block';
+      resultDiv.classList.add('fadeIn');
+      document.getElementById('speedResults').innerHTML = html;
+    }
+  </script>
+</body>
+</html>
+
